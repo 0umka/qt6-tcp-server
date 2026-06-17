@@ -11,6 +11,7 @@ class Client : public QObject
     Q_OBJECT
 public:
     explicit Client(QTcpSocket* socket, QObject *parent = nullptr);
+    ~Client();
 
     enum class Statuses {
         kConnected,
@@ -19,16 +20,20 @@ public:
     };
 
     struct Data {
-        int PacketSize;
-        QJsonObject JsonData;
+        int packet_size;
+        QJsonObject json_data;
     };
 
     void Start();
     void Stop();
 
+    QString GetIpAddress();
+    Statuses GetStatus();
+
 signals:
     void StatusChanged(Client::Statuses Status);
     void DataReceived(QByteArray data);
+    void ClientDisconnected();
 
 private slots:
     void StatusTimerHandler();

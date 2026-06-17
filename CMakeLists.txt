@@ -13,6 +13,9 @@ qt_add_executable(qt6-tcp-server
     main_window.ui
     server.h server.cc
     client.h client.cc
+    proxy_connections.h proxy_connections.cpp
+    proxy_data.h proxy_data.cpp
+
 )
 
 target_link_libraries(qt6-tcp-server

@@ -4,6 +4,13 @@ Server::Server(QObject *parent)
     : QObject{parent}
 {}
 
+Server::~Server()
+{
+    if(tcp_server_){
+        Stop();
+    }
+}
+
 void Server::Stop()
 {
     if (tcp_server_){
@@ -32,10 +39,12 @@ void Server::ConnectClient()
     if (tcp_server_->hasPendingConnections()) {
         QTcpSocket* connection = tcp_server_->nextPendingConnection();
         if(connection){
-            Client* client = new Client(connection, this);
+            Client* client =  new Client(connection, this);
             connect(client, &Client::StatusChanged, this, &Server::ClientStatusChanged);
             connect(client, &Client::DataReceived, this, &Server::ClientDataReceived);
-            active_connections_.push_back(client);
+            active_connections_[client] = new ProxyData(client, client);
+            active_clients_list_.push_back(client);
         }
     }
 }
+

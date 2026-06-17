@@ -11,6 +11,30 @@ Client::Client(QTcpSocket* socket, QObject *parent)
     connect(tcp_socket_, &QTcpSocket::readyRead, this, &Client::ProcessPendingDatagram);
 }
 
+Client::~Client()
+{
+    if (tcp_socket_){
+        disconnect(tcp_socket_, &QTcpSocket::readyRead, this, &Client::ProcessPendingDatagram);
+        tcp_socket_->close();
+        delete tcp_socket_;
+        tcp_socket_ = nullptr;
+        this->deleteLater();
+    }
+}
+
+QString Client::GetIpAddress()
+{
+    if (tcp_socket_){
+        return tcp_socket_->peerAddress().toString();
+    }
+    return "NO IP";
+}
+
+Client::Statuses Client::GetStatus()
+{
+    return current_status_;
+}
+
 void Client::StatusTimerHandler()
 {
     if(packet_count_ > prev_packet_count_) {
