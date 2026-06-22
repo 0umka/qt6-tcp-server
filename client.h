@@ -5,6 +5,7 @@
 #include <QTcpSocket>
 #include <QTimer>
 #include <QJsonObject>
+#include <QString>
 
 class Client : public QObject
 {
@@ -25,7 +26,7 @@ public:
     };
 
     void Start();
-    void Stop();
+    void Stop(bool notify = true);
 
     QString GetIpAddress();
     Statuses GetStatus();
@@ -38,10 +39,13 @@ signals:
 private slots:
     void StatusTimerHandler();
     void ProcessPendingDatagram();
+    void SocketDisconnected();
 
 private:
     QTcpSocket* tcp_socket_;
+    QString ip_address_;
     QTimer* status_timer_ = nullptr;
+    bool stopped_ = false;
     int packet_count_ = 0;
     int prev_packet_count_ = 0;
     Statuses current_status_ = Statuses::kDisconnected;

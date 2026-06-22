@@ -3,7 +3,23 @@
 ProxyConnections::ProxyConnections(Server* model, QObject *parent)
     : QAbstractTableModel{parent}
     , model_(model)
-{}
+{
+    connect(model_, &Server::ConnectionsChanged, this, &ProxyConnections::Reset);
+    connect(model_, &Server::ClientStatusChanged, this, &ProxyConnections::UpdateStatuses);
+}
+
+void ProxyConnections::Reset()
+{
+    beginResetModel();
+    endResetModel();
+}
+
+void ProxyConnections::UpdateStatuses()
+{
+    int rows = rowCount();
+    if (rows > 0)
+        emit dataChanged(index(0, 1), index(rows - 1, 1), {Qt::DisplayRole});
+}
 
 int ProxyConnections::rowCount(const QModelIndex &parent) const
 {
@@ -47,4 +63,16 @@ QVariant ProxyConnections::data(const QModelIndex &index, int role) const
     }
     }
     return data;
+}
+
+QVariant ProxyConnections::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
+        return {};
+
+    switch (section) {
+    case 0: return "IP";
+    case 1: return "Status";
+    default: return {};
+    }
 }

@@ -4,30 +4,44 @@ Client::Client(QTcpSocket* socket, QObject *parent)
     : QObject{parent},
     tcp_socket_(socket)
 {
+    tcp_socket_->setParent(this);
+    ip_address_ = tcp_socket_->peerAddress().toString();
     status_timer_ = new QTimer(this);
     connect(status_timer_, &QTimer::timeout, this, &Client::StatusTimerHandler);
     status_timer_->start(kStatusTimeout);
 
     connect(tcp_socket_, &QTcpSocket::readyRead, this, &Client::ProcessPendingDatagram);
+    connect(tcp_socket_, &QTcpSocket::disconnected, this, &Client::SocketDisconnected);
 }
 
 Client::~Client()
 {
-    if (tcp_socket_){
+    if (tcp_socket_)
+        Stop(false);
+}
+
+void Client::Stop(bool notify)
+{
+    if (tcp_socket_ && !stopped_){
+        stopped_ = true;
         disconnect(tcp_socket_, &QTcpSocket::readyRead, this, &Client::ProcessPendingDatagram);
+        disconnect(tcp_socket_, &QTcpSocket::disconnected, this, &Client::SocketDisconnected);
         tcp_socket_->close();
-        delete tcp_socket_;
-        tcp_socket_ = nullptr;
-        this->deleteLater();
+        current_status_ = Statuses::kDisconnected;
+        if (notify)
+            emit StatusChanged(current_status_);
     }
+}
+
+void Client::SocketDisconnected()
+{
+    Stop(false);
+    emit ClientDisconnected();
 }
 
 QString Client::GetIpAddress()
 {
-    if (tcp_socket_){
-        return tcp_socket_->peerAddress().toString();
-    }
-    return "NO IP";
+    return ip_address_;
 }
 
 Client::Statuses Client::GetStatus()

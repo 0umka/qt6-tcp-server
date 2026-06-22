@@ -25,10 +25,12 @@ public:
 signals:
     void ClientStatusChanged(Client::Statuses Status);
     void ClientDataReceived();
+    void ConnectionsChanged();
     void ServerStarted();
 
 private slots:
     void ConnectClient();
+    void RemoveClient();
 
 private:
     QTcpServer* tcp_server_ = nullptr;
