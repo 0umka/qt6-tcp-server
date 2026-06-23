@@ -8,12 +8,18 @@ ProxyConnections::ProxyConnections(Server* model, QObject *parent)
     connect(model_, &Server::ClientStatusChanged, this, &ProxyConnections::UpdateStatuses);
 }
 
+/**
+ * @brief ProxyConnections::Reset
+ */
 void ProxyConnections::Reset()
 {
     beginResetModel();
     endResetModel();
 }
 
+/**
+ * @brief ProxyConnections::UpdateStatuses
+ */
 void ProxyConnections::UpdateStatuses()
 {
     int rows = rowCount();
@@ -21,10 +27,14 @@ void ProxyConnections::UpdateStatuses()
         emit dataChanged(index(0, 1), index(rows - 1, 1), {Qt::DisplayRole});
 }
 
+/**
+ * @brief ProxyConnections::rowCount
+ * @param parent
+ * @return number of rows
+ */
 int ProxyConnections::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent)
-    return model_->GetActiveClients().size();
+    return model_->GetConnectionCount();
 }
 
 /**
@@ -45,9 +55,12 @@ int ProxyConnections::columnCount(const QModelIndex &parent) const
  */
 QVariant ProxyConnections::data(const QModelIndex &index, int role) const
 {
+    if (!index.isValid() || index.row() >= model_->GetConnectionCount())
+        return {};
+
     QVariant data;
 
-    Client* client = model_->GetActiveClients().at(index.row());
+    Client* client = model_->GetClient(index.row());
     Client::Statuses status = client->GetStatus();
     switch(role) {
     case Qt::DisplayRole: {
@@ -65,6 +78,13 @@ QVariant ProxyConnections::data(const QModelIndex &index, int role) const
     return data;
 }
 
+/**
+ * @inherits
+ * @param section
+ * @param orientation
+ * @param role
+ * @return
+ */
 QVariant ProxyConnections::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)

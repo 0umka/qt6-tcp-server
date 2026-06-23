@@ -1,14 +1,18 @@
 #include "client.h"
 
+/**
+ * @brief Client::Client
+ * @param socket
+ * @param parent
+ */
 Client::Client(QTcpSocket* socket, QObject *parent)
     : QObject{parent},
     tcp_socket_(socket)
 {
     tcp_socket_->setParent(this);
+
+
     ip_address_ = tcp_socket_->peerAddress().toString();
-    status_timer_ = new QTimer(this);
-    connect(status_timer_, &QTimer::timeout, this, &Client::StatusTimerHandler);
-    status_timer_->start(kStatusTimeout);
 
     connect(tcp_socket_, &QTcpSocket::readyRead, this, &Client::ProcessPendingDatagram);
     connect(tcp_socket_, &QTcpSocket::disconnected, this, &Client::SocketDisconnected);
@@ -17,10 +21,13 @@ Client::Client(QTcpSocket* socket, QObject *parent)
 Client::~Client()
 {
     if (tcp_socket_)
-        Stop(false);
+        Stop();
 }
 
-void Client::Stop(bool notify)
+/**
+ * @brief Stop client, close it`s socket
+ */
+void Client::Stop()
 {
     if (tcp_socket_ && !stopped_){
         stopped_ = true;
@@ -28,28 +35,40 @@ void Client::Stop(bool notify)
         disconnect(tcp_socket_, &QTcpSocket::disconnected, this, &Client::SocketDisconnected);
         tcp_socket_->close();
         current_status_ = Statuses::kDisconnected;
-        if (notify)
-            emit StatusChanged(current_status_);
     }
 }
 
+/**
+ * @brief Emits disconnect and stops client
+ */
 void Client::SocketDisconnected()
 {
-    Stop(false);
+    Stop();
     emit ClientDisconnected();
 }
 
+/**
+ * @brief Client::GetIpAddress
+ * @return
+ */
 QString Client::GetIpAddress()
 {
     return ip_address_;
 }
 
+/**
+ * @brief Client::GetStatus
+ * @return status
+ */
 Client::Statuses Client::GetStatus()
 {
     return current_status_;
 }
 
-void Client::StatusTimerHandler()
+/**
+ * @brief Updates connection status
+ */
+void Client::UpdateStatus()
 {
     if(packet_count_ > prev_packet_count_) {
         current_status_ = Statuses::kConnected;
@@ -60,14 +79,16 @@ void Client::StatusTimerHandler()
         current_status_ = Statuses::kDisconnected;
     }
     prev_packet_count_ = packet_count_;
-    emit StatusChanged(current_status_);
 }
 
+/**
+ * @brief Reads socket`s bytes and emits receiving
+ */
 void Client::ProcessPendingDatagram()
 {
     while(tcp_socket_->bytesAvailable()){
         QByteArray data = tcp_socket_->readAll();
         packet_count_++;
-        emit DataReceived(data);
+        emit DataReceived(QJsonDocument::fromJson(data).object());
     }
 }

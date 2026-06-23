@@ -22,15 +22,15 @@ public:
     ~MainWindow() override;
 
 private slots:
-    void UpdateTimerHandler();
     void ConnectionHandler(const QModelIndex &index);
+    void AppendLog(const QString& message);
 
 private:
     Ui::MainWindow *ui;
     ProxyConnections* proxy_connections_ = nullptr;
     Server* server_ = nullptr;
-    QTimer* update_timer_ = nullptr;
     QThread* server_thread_ = nullptr;
     static constexpr int kUpdateTimeout = 1000;
+    static constexpr int kMaxLogLines = 20000;
 };
 #endif // MAIN_WINDOW_H

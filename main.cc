@@ -6,6 +6,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     MainWindow w;
+    w.setWindowTitle("qt6-tcp-server");
     w.show();
     return QCoreApplication::exec();
 }

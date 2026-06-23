@@ -1,8 +1,14 @@
 #include "server.h"
 
+#include <QJsonDocument>
+
 Server::Server(QObject *parent)
     : QObject{parent}
-{}
+{
+    status_timer_ = new QTimer(this);
+    connect(status_timer_, &QTimer::timeout, this, &Server::UpdateClientStatuses);
+    status_timer_->start(kStatusTimeout);
+}
 
 Server::~Server()
 {
@@ -13,24 +19,29 @@ Server::~Server()
     tcp_server_ = nullptr;
 }
 
+/**
+ * @brief stops server, stops all clients (sockets), clear connections and emits connection change
+ */
 void Server::Stop()
 {
     if (tcp_server_){
         disconnect(tcp_server_, &QTcpServer::pendingConnectionAvailable, this, &Server::ConnectClient);
         tcp_server_->close();
-        for(auto& client : active_connections_) {
-            disconnect(client.first, &Client::ClientDisconnected, this, &Server::RemoveClient);
-            client.first->Stop(false);
-            client.first->deleteLater();
+        for(auto& connection : active_connections_) {
+            disconnect(connection.client, &Client::ClientDisconnected, this, &Server::RemoveClient);
+            connection.client->Stop();
+            connection.client->deleteLater();
         }
         active_connections_.clear();
-        active_clients_list_.clear();
         delete tcp_server_;
         tcp_server_ = nullptr;
         emit ConnectionsChanged();
     }
 }
 
+/**
+ * @brief Server::Start port:12345 emits server start
+ */
 void Server::Start()
 {
     if (tcp_server_)
@@ -44,35 +55,60 @@ void Server::Start()
     }
 }
 
+/**
+ * @brief Connects new clients (sockets), emits log message and connections changes
+ */
 void Server::ConnectClient()
 {
     if (tcp_server_->hasPendingConnections()) {
-        QTcpSocket* connection = tcp_server_->nextPendingConnection();
+            QTcpSocket* connection = tcp_server_->nextPendingConnection();
         if(connection){
             Client* client =  new Client(connection, this);
-            connect(client, &Client::StatusChanged, this, &Server::ClientStatusChanged);
-            connect(client, &Client::DataReceived, this, &Server::ClientDataReceived);
             connect(client, &Client::ClientDisconnected, this, &Server::RemoveClient);
-            active_connections_[client] = new ProxyData(client, client);
-            active_clients_list_.push_back(client);
+            connect(client, &Client::DataReceived, this, [this](const QJsonObject& data) {
+                if (data.value("type").toString() != "Log")
+                    return;
+
+                const QString message = data.value("message").toString();
+                emit LogMessage(message.isEmpty()
+                                    ? QString::fromUtf8(QJsonDocument(data).toJson(QJsonDocument::Compact))
+                                    : message);
+            });
+            active_connections_.push_back({client, new ProxyData(client, client)});
+            emit LogMessage(QString("Connected: %1").arg(client->GetIpAddress()));
             emit ConnectionsChanged();
         }
     }
 }
 
+/**
+ * @brief removes client, emits log message and connection changes
+ */
 void Server::RemoveClient()
 {
     Client* client = qobject_cast<Client*>(sender());
     if (!client)
         return;
 
-    active_connections_.erase(client);
-    for (auto it = active_clients_list_.begin(); it != active_clients_list_.end(); ++it) {
-        if (*it == client) {
-            active_clients_list_.erase(it);
+    emit LogMessage(QString("Disconnected: %1").arg(client->GetIpAddress()));
+
+    for (auto it = active_connections_.begin(); it != active_connections_.end(); ++it) {
+        if (it->client == client) {
+            active_connections_.erase(it);
             break;
         }
     }
     client->deleteLater();
     emit ConnectionsChanged();
+}
+
+/**
+ * @brief updates client`s status and emits client`s status change
+ */
+void Server::UpdateClientStatuses()
+{
+    for (auto& connection : active_connections_)
+        connection.client->UpdateStatus();
+
+    emit ClientStatusChanged();
 }
