@@ -23,8 +23,7 @@ void ProxyConnections::UpdateStatuses()
 
 int ProxyConnections::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent)
-    return model_->GetActiveClients().size();
+    return model_->GetConnectionCount();
 }
 
 /**
@@ -45,9 +44,12 @@ int ProxyConnections::columnCount(const QModelIndex &parent) const
  */
 QVariant ProxyConnections::data(const QModelIndex &index, int role) const
 {
+    if (!index.isValid() || index.row() >= model_->GetConnectionCount())
+        return {};
+
     QVariant data;
 
-    Client* client = model_->GetActiveClients().at(index.row());
+    Client* client = model_->GetClient(index.row());
     Client::Statuses status = client->GetStatus();
     switch(role) {
     case Qt::DisplayRole: {

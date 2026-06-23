@@ -1,13 +1,18 @@
 #include "main_window.h"
 #include "ui_main_window.h"
 
+#include <QDateTime>
 #include <QHeaderView>
+#include <QSizePolicy>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    ui->logView->setMaximumHeight(QWIDGETSIZE_MAX);
+    ui->logView->document()->setMaximumBlockCount(kMaxLogLines);
 
     server_thread_ = new QThread();
     server_ = new Server();
@@ -21,16 +26,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->connectionsView->verticalHeader()->setVisible(false);
     ui->connectionsView->setSelectionBehavior(QAbstractItemView::SelectRows);
 
-    update_timer_ = new QTimer(this);
-    connect(update_timer_, &QTimer::timeout, this, &MainWindow::UpdateTimerHandler);
-    update_timer_->start(kUpdateTimeout);
-
     connect(ui->connectionsView, &QTableView::clicked, this, &MainWindow::ConnectionHandler);
+    connect(ui->startBtn, &QPushButton::clicked, server_, &Server::Start);
+    connect(ui->stopBtn, &QPushButton::clicked, server_, &Server::Stop);
 
     connect(server_thread_, &QThread::finished, server_thread_, &QObject::deleteLater);
 
-    connect(ui->startBtn, &QPushButton::clicked, server_, &Server::Start);
-    connect(ui->stopBtn, &QPushButton::clicked, server_, &Server::Stop);
+    connect(server_, &Server::LogMessage, this, &MainWindow::AppendLog);
     server_thread_->start();
 }
 
@@ -43,16 +45,22 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::UpdateTimerHandler()
-{
-
-}
-
 void MainWindow::ConnectionHandler(const QModelIndex& index)
 {
     if(!index.isValid())
         return;
 
-    // std::unique_ptr<ProxyData> model = server_->GetActiveConnections()[index.row()];
+    if (index.row() < 0 || index.row() >= server_->GetConnectionCount())
+        return;
 
+    ui->dataView->setModel(server_->GetData(index.row()));
+    ui->dataView->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    ui->dataView->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    ui->dataView->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+
+}
+
+void MainWindow::AppendLog(const QString& message)
+{
+    ui->logView->appendPlainText(QDateTime::currentDateTime().toString("HH:mm:ss ") + message);
 }
